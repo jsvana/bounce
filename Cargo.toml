@@ -1,0 +1,15 @@
+[package]
+name = "bounce"
+version = "0.1.0"
+authors = ["Jay Vana <jaysvana@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "*"
+structopt = "*"
+bytes = "*"
+tokio = { version = "*", features = ["full"] }
+native-tls = "*"
+tokio-tls = "*"
+futures = "*"
+tokio-io-timeout = "*"
