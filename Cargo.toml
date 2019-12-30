@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "*"
+thiserror = "*"
 structopt = "*"
 bytes = "*"
 tokio = { version = "*", features = ["full"] }

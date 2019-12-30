@@ -1,36 +1,44 @@
-#[derive(Debug)]
-pub struct Prefix<'a> {
-    entity: &'a str,
-    user: Option<&'a str>,
-    host: Option<&'a str>,
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum InvalidMessageError {
+    #[error("Message has no contents")]
+    Empty,
 }
 
-impl<'a> PartialEq for Prefix<'a> {
+#[derive(Debug)]
+pub struct Prefix {
+    entity: String,
+    user: Option<String>,
+    host: Option<String>,
+}
+
+impl PartialEq for Prefix {
     fn eq(&self, other: &Self) -> bool {
         self.entity == other.entity && self.user == other.user && self.host == other.host
     }
 }
 
-impl<'a> Prefix<'a> {
-    fn split_on_string<'b>(s: &str, message: &'b str) -> (&'b str, Option<&'b str>) {
+impl Prefix {
+    fn split_on_string(s: &str, message: &str) -> (String, Option<String>) {
         let at = message.find(s);
         (
-            at.map_or(message, |idx| &message[..idx]),
-            at.map(|idx| &message[idx + 1..]),
+            at.map_or(message.to_string(), |idx| message[..idx].to_string()),
+            at.map(|idx| message[idx + 1..].to_string()),
         )
     }
 
     fn parse(message: &str) -> Prefix {
         let (entity, rest) = Prefix::split_on_string("!", message);
         if let Some(rest) = rest {
-            let (user, host) = Prefix::split_on_string("@", rest);
+            let (user, host) = Prefix::split_on_string("@", &rest);
             Prefix {
                 entity,
                 user: Some(user),
                 host,
             }
         } else {
-            let (entity, host) = Prefix::split_on_string("@", entity);
+            let (entity, host) = Prefix::split_on_string("@", &entity);
             Prefix {
                 entity,
                 user: None,
@@ -41,10 +49,10 @@ impl<'a> Prefix<'a> {
 
     fn to_string(&self) -> String {
         let mut prefix_str = format!("{}", self.entity);
-        if let Some(user) = self.user {
+        if let Some(user) = &self.user {
             prefix_str += &format!("!{}", user);
         }
-        if let Some(host) = self.host {
+        if let Some(host) = &self.host {
             prefix_str += &format!("@{}", host);
         }
         prefix_str
@@ -52,22 +60,22 @@ impl<'a> Prefix<'a> {
 }
 
 #[derive(Debug)]
-pub struct Message<'a> {
-    prefix: Option<Prefix<'a>>,
-    command: &'a str,
-    params: Option<Vec<&'a str>>,
+pub struct Message {
+    prefix: Option<Prefix>,
+    command: String,
+    params: Option<Vec<String>>,
 }
 
-impl<'a> PartialEq for Message<'a> {
+impl PartialEq for Message {
     fn eq(&self, other: &Self) -> bool {
         self.prefix == other.prefix && self.command == other.command && self.params == other.params
     }
 }
 
-impl<'a> Message<'a> {
-    pub fn parse(message: &str) -> Result<Message, &str> {
+impl Message {
+    pub fn parse(message: &str) -> Result<Message, InvalidMessageError> {
         if message.len() == 0 {
-            return Err("Message is invalid (has zero length)");
+            return Err(InvalidMessageError::Empty);
         }
 
         let mut space = match message.find(" ") {
@@ -75,7 +83,7 @@ impl<'a> Message<'a> {
             None => {
                 return Ok(Message {
                     prefix: None,
-                    command: message,
+                    command: message.to_string(),
                     params: None,
                 })
             }
@@ -92,7 +100,7 @@ impl<'a> Message<'a> {
             _ => None,
         };
 
-        let command = &message_iter[..space];
+        let command = message_iter[..space].to_string();
 
         if space == message_iter.len() {
             return Ok(Message {
@@ -108,22 +116,22 @@ impl<'a> Message<'a> {
 
         while message_iter.len() > 0 {
             if &message_iter[..1] == ":" {
-                params.push(&message_iter[1..]);
+                params.push(message_iter[1..].to_string());
                 break;
             }
 
             message_iter = match &message_iter[..1] {
                 ":" => {
-                    params.push(&message_iter[1..]);
+                    params.push(message_iter[1..].to_string());
                     ""
                 }
                 _ => match message_iter.find(" ") {
                     Some(idx) => {
-                        params.push(&message_iter[..idx]);
+                        params.push(message_iter[..idx].to_string());
                         &message_iter[idx + 1..]
                     }
                     None => {
-                        params.push(message_iter);
+                        params.push(message_iter.to_string());
                         ""
                     }
                 },
@@ -132,7 +140,7 @@ impl<'a> Message<'a> {
 
         Ok(Message {
             prefix,
-            command,
+            command: command.to_string(),
             params: Some(params),
         })
     }
@@ -167,7 +175,7 @@ mod tests {
         assert_eq!(
             Prefix::parse("irc-west.hs.gy"),
             Prefix {
-                entity: "irc-west.hs.gy",
+                entity: "irc-west.hs.gy".to_string(),
                 user: None,
                 host: None
             },
@@ -179,9 +187,9 @@ mod tests {
         assert_eq!(
             Prefix::parse("jay@localhost"),
             Prefix {
-                entity: "jay",
+                entity: "jay".to_string(),
                 user: None,
-                host: Some("localhost")
+                host: Some("localhost".to_string())
             },
         );
     }
@@ -191,8 +199,8 @@ mod tests {
         assert_eq!(
             Prefix::parse("jay!jsvana"),
             Prefix {
-                entity: "jay",
-                user: Some("jsvana"),
+                entity: "jay".to_string(),
+                user: Some("jsvana".to_string()),
                 host: None
             },
         );
@@ -203,9 +211,9 @@ mod tests {
         assert_eq!(
             Prefix::parse("jay!jsvana@localhost"),
             Prefix {
-                entity: "jay",
-                user: Some("jsvana"),
-                host: Some("localhost")
+                entity: "jay".to_string(),
+                user: Some("jsvana".to_string()),
+                host: Some("localhost".to_string())
             },
         );
     }
@@ -217,11 +225,11 @@ mod tests {
             res,
             Message {
                 prefix: Some(Prefix {
-                    entity: "jay",
+                    entity: "jay".to_string(),
                     user: None,
-                    host: Some("localhost")
+                    host: Some("localhost".to_string())
                 }),
-                command: "FAKE",
+                command: "FAKE".to_string(),
                 params: None,
             },
         )
@@ -233,7 +241,7 @@ mod tests {
             Message::parse("FAKE").unwrap(),
             Message {
                 prefix: None,
-                command: "FAKE",
+                command: "FAKE".to_string(),
                 params: None,
             },
         )
@@ -245,12 +253,15 @@ mod tests {
             Message::parse(":irc-west.hs.gy NOTICE * :*** Looking up your hostname...").unwrap(),
             Message {
                 prefix: Some(Prefix {
-                    entity: "irc-west.hs.gy",
+                    entity: "irc-west.hs.gy".to_string(),
                     user: None,
                     host: None
                 }),
-                command: "NOTICE",
-                params: Some(vec!["*", "*** Looking up your hostname..."]),
+                command: "NOTICE".to_string(),
+                params: Some(vec![
+                    "*".to_string(),
+                    "*** Looking up your hostname...".to_string()
+                ]),
             },
         )
     }
@@ -261,12 +272,12 @@ mod tests {
             Message::parse(":jay!jsvana PRIVMSG belak :test message").unwrap(),
             Message {
                 prefix: Some(Prefix {
-                    entity: "jay",
-                    user: Some("jsvana"),
+                    entity: "jay".to_string(),
+                    user: Some("jsvana".to_string()),
                     host: None
                 }),
-                command: "PRIVMSG",
-                params: Some(vec!["belak", "test message"]),
+                command: "PRIVMSG".to_string(),
+                params: Some(vec!["belak".to_string(), "test message".to_string()]),
             },
         )
     }
@@ -277,8 +288,8 @@ mod tests {
             Message::parse("PING :1234").unwrap(),
             Message {
                 prefix: None,
-                command: "PING",
-                params: Some(vec!["1234"]),
+                command: "PING".to_string(),
+                params: Some(vec!["1234".to_string()]),
             },
         )
     }
@@ -287,12 +298,12 @@ mod tests {
     fn test_prefix_to_string_only_entity() {
         assert_eq!(
             Prefix {
-                entity: "irc-west.hs.gy",
+                entity: "irc-west.hs.gy".to_string(),
                 user: None,
                 host: None
             }
             .to_string(),
-            "irc-west.hs.gy",
+            "irc-west.hs.gy".to_string(),
         );
     }
 
@@ -300,12 +311,12 @@ mod tests {
     fn test_prefix_to_string_no_user() {
         assert_eq!(
             Prefix {
-                entity: "jay",
+                entity: "jay".to_string(),
                 user: None,
-                host: Some("localhost")
+                host: Some("localhost".to_string())
             }
             .to_string(),
-            "jay@localhost",
+            "jay@localhost".to_string(),
         );
     }
 
@@ -313,12 +324,12 @@ mod tests {
     fn test_prefix_to_string_no_host() {
         assert_eq!(
             Prefix {
-                entity: "jay",
-                user: Some("jsvana"),
+                entity: "jay".to_string(),
+                user: Some("jsvana".to_string()),
                 host: None
             }
             .to_string(),
-            "jay!jsvana",
+            "jay!jsvana".to_string(),
         );
     }
 
@@ -326,12 +337,12 @@ mod tests {
     fn test_prefix_to_string_all_info() {
         assert_eq!(
             Prefix {
-                entity: "jay",
-                user: Some("jsvana"),
-                host: Some("localhost")
+                entity: "jay".to_string(),
+                user: Some("jsvana".to_string()),
+                host: Some("localhost".to_string())
             }
             .to_string(),
-            "jay!jsvana@localhost",
+            "jay!jsvana@localhost".to_string(),
         );
     }
 
@@ -340,15 +351,15 @@ mod tests {
         assert_eq!(
             Message {
                 prefix: Some(Prefix {
-                    entity: "jay",
+                    entity: "jay".to_string(),
                     user: None,
-                    host: Some("localhost")
+                    host: Some("localhost".to_string())
                 }),
-                command: "FAKE",
+                command: "FAKE".to_string(),
                 params: None,
             }
             .to_string(),
-            ":jay@localhost FAKE",
+            ":jay@localhost FAKE".to_string(),
         )
     }
 
@@ -357,11 +368,11 @@ mod tests {
         assert_eq!(
             Message {
                 prefix: None,
-                command: "FAKE",
+                command: "FAKE".to_string(),
                 params: None,
             }
             .to_string(),
-            "FAKE",
+            "FAKE".to_string(),
         )
     }
 
@@ -370,15 +381,18 @@ mod tests {
         assert_eq!(
             Message {
                 prefix: Some(Prefix {
-                    entity: "irc-west.hs.gy",
+                    entity: "irc-west.hs.gy".to_string(),
                     user: None,
                     host: None
                 }),
-                command: "NOTICE",
-                params: Some(vec!["*", "*** Looking up your hostname..."]),
+                command: "NOTICE".to_string(),
+                params: Some(vec![
+                    "*".to_string(),
+                    "*** Looking up your hostname...".to_string()
+                ]),
             }
             .to_string(),
-            ":irc-west.hs.gy NOTICE * :*** Looking up your hostname...",
+            ":irc-west.hs.gy NOTICE * :*** Looking up your hostname...".to_string(),
         )
     }
 
@@ -387,15 +401,15 @@ mod tests {
         assert_eq!(
             Message {
                 prefix: Some(Prefix {
-                    entity: "jay",
-                    user: Some("jsvana"),
+                    entity: "jay".to_string(),
+                    user: Some("jsvana".to_string()),
                     host: None
                 }),
-                command: "PRIVMSG",
-                params: Some(vec!["belak", "test message"]),
+                command: "PRIVMSG".to_string(),
+                params: Some(vec!["belak".to_string(), "test message".to_string()]),
             }
             .to_string(),
-            ":jay!jsvana PRIVMSG belak :test message",
+            ":jay!jsvana PRIVMSG belak :test message".to_string(),
         )
     }
 
@@ -404,11 +418,11 @@ mod tests {
         assert_eq!(
             Message {
                 prefix: None,
-                command: "PING",
-                params: Some(vec!["1234"]),
+                command: "PING".to_string(),
+                params: Some(vec!["1234".to_string()]),
             }
             .to_string(),
-            "PING :1234",
+            "PING :1234".to_string(),
         )
     }
 }
