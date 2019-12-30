@@ -35,14 +35,17 @@ impl Prefix {
 
 impl fmt::Display for Prefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut prefix_str = format!("{}", self.entity);
+        write!(f, "{}", self.entity)?;
+
         if let Some(user) = &self.user {
-            prefix_str.push_str(&format!("!{}", user));
+            write!(f, "!{}", user)?;
         }
+
         if let Some(host) = &self.host {
-            prefix_str.push_str(&format!("@{}", host));
+            write!(f, "@{}", host)?;
         }
-        write!(f, "{}", prefix_str)
+
+        Ok(())
     }
 }
 
@@ -84,23 +87,23 @@ impl PartialEq for Message {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut message_str = match &self.prefix {
-            Some(prefix) => format!(":{} ", prefix.to_string()),
-            None => "".to_string(),
-        };
+        if let Some(prefix) = &self.prefix {
+            write!(f, ":{} ", prefix)?;
+        }
 
-        message_str.push_str(&format!("{}", self.command));
+        write!(f, "{}", self.command)?;
 
         if let Some(ref params) = self.params {
             for (i, param) in params.iter().enumerate() {
+                write!(f, " ")?;
                 if i == params.len() - 1 {
-                    message_str.push_str(&format!(" :{}", param));
-                } else {
-                    message_str.push_str(&format!(" {}", param));
+                    write!(f, ":")?;
                 }
+                write!(f, "{}", param)?;
             }
         }
-        write!(f, "{}", message_str)
+
+        Ok(())
     }
 }
 
