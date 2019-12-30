@@ -1,3 +1,6 @@
+use std::convert::Infallible;
+use std::str::FromStr;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -28,25 +31,6 @@ impl Prefix {
         )
     }
 
-    fn parse(message: &str) -> Prefix {
-        let (entity, rest) = Prefix::split_on_string("!", message);
-        if let Some(rest) = rest {
-            let (user, host) = Prefix::split_on_string("@", &rest);
-            Prefix {
-                entity,
-                user: Some(user),
-                host,
-            }
-        } else {
-            let (entity, host) = Prefix::split_on_string("@", &entity);
-            Prefix {
-                entity,
-                user: None,
-                host,
-            }
-        }
-    }
-
     fn to_string(&self) -> String {
         let mut prefix_str = format!("{}", self.entity);
         if let Some(user) = &self.user {
@@ -56,6 +40,29 @@ impl Prefix {
             prefix_str += &format!("@{}", host);
         }
         prefix_str
+    }
+}
+
+impl FromStr for Prefix {
+    type Err = Infallible;
+
+    fn from_str(message: &str) -> Result<Self, Self::Err> {
+        let (entity, rest) = Prefix::split_on_string("!", message);
+        if let Some(rest) = rest {
+            let (user, host) = Prefix::split_on_string("@", &rest);
+            Ok(Prefix {
+                entity,
+                user: Some(user),
+                host,
+            })
+        } else {
+            let (entity, host) = Prefix::split_on_string("@", &entity);
+            Ok(Prefix {
+                entity,
+                user: None,
+                host,
+            })
+        }
     }
 }
 
@@ -73,7 +80,31 @@ impl PartialEq for Message {
 }
 
 impl Message {
-    pub fn parse(message: &str) -> Result<Message, InvalidMessageError> {
+    fn to_string(&self) -> String {
+        let mut message_str = match &self.prefix {
+            Some(prefix) => format!(":{} ", prefix.to_string()),
+            None => "".to_string(),
+        };
+
+        message_str += &format!("{}", self.command);
+
+        if let Some(ref params) = self.params {
+            for (i, param) in params.iter().enumerate() {
+                if i == params.len() - 1 {
+                    message_str += &format!(" :{}", param);
+                } else {
+                    message_str += &format!(" {}", param);
+                }
+            }
+        }
+        message_str
+    }
+}
+
+impl FromStr for Message {
+    type Err = InvalidMessageError;
+
+    fn from_str(message: &str) -> Result<Self, Self::Err> {
         if message.len() == 0 {
             return Err(InvalidMessageError::Empty);
         }
@@ -95,7 +126,7 @@ impl Message {
                 let old_space = space;
                 message_iter = &message[space + 1..];
                 space = message_iter.find(" ").unwrap_or(message_iter.len());
-                Some(Prefix::parse(&message[1..old_space]))
+                Some(message[1..old_space].parse().unwrap())
             }
             _ => None,
         };
@@ -144,85 +175,74 @@ impl Message {
             params: Some(params),
         })
     }
-
-    fn to_string(&self) -> String {
-        let mut message_str = match &self.prefix {
-            Some(prefix) => format!(":{} ", prefix.to_string()),
-            None => "".to_string(),
-        };
-
-        message_str += &format!("{}", self.command);
-
-        if let Some(ref params) = self.params {
-            for (i, param) in params.iter().enumerate() {
-                if i == params.len() - 1 {
-                    message_str += &format!(" :{}", param);
-                } else {
-                    message_str += &format!(" {}", param);
-                }
-            }
-        }
-        message_str
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use anyhow::Result;
+
     #[test]
-    fn test_parse_prefix_only_entity() {
+    fn test_parse_prefix_only_entity() -> Result<()> {
         assert_eq!(
-            Prefix::parse("irc-west.hs.gy"),
+            Prefix::from_str("irc-west.hs.gy")?,
             Prefix {
                 entity: "irc-west.hs.gy".to_string(),
                 user: None,
                 host: None
             },
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_prefix_no_user() {
+    fn test_parse_prefix_no_user() -> Result<()> {
         assert_eq!(
-            Prefix::parse("jay@localhost"),
+            Prefix::from_str("jay@localhost")?,
             Prefix {
                 entity: "jay".to_string(),
                 user: None,
                 host: Some("localhost".to_string())
             },
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_prefix_no_host() {
+    fn test_parse_prefix_no_host() -> Result<()> {
         assert_eq!(
-            Prefix::parse("jay!jsvana"),
+            Prefix::from_str("jay!jsvana")?,
             Prefix {
                 entity: "jay".to_string(),
                 user: Some("jsvana".to_string()),
                 host: None
             },
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_prefix_all_info() {
+    fn test_parse_prefix_all_info() -> Result<()> {
         assert_eq!(
-            Prefix::parse("jay!jsvana@localhost"),
+            Prefix::from_str("jay!jsvana@localhost")?,
             Prefix {
                 entity: "jay".to_string(),
                 user: Some("jsvana".to_string()),
                 host: Some("localhost".to_string())
             },
         );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_message_no_params() {
-        let res = Message::parse(":jay@localhost FAKE").unwrap();
+    fn test_parse_message_no_params() -> Result<()> {
         assert_eq!(
-            res,
+            Message::from_str(":jay@localhost FAKE")?,
             Message {
                 prefix: Some(Prefix {
                     entity: "jay".to_string(),
@@ -232,25 +252,29 @@ mod tests {
                 command: "FAKE".to_string(),
                 params: None,
             },
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_message_only_command() {
+    fn test_parse_message_only_command() -> Result<()> {
         assert_eq!(
-            Message::parse("FAKE").unwrap(),
+            Message::from_str("FAKE")?,
             Message {
                 prefix: None,
                 command: "FAKE".to_string(),
                 params: None,
             },
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_message_notice() {
+    fn test_parse_message_notice() -> Result<()> {
         assert_eq!(
-            Message::parse(":irc-west.hs.gy NOTICE * :*** Looking up your hostname...").unwrap(),
+            Message::from_str(":irc-west.hs.gy NOTICE * :*** Looking up your hostname...")?,
             Message {
                 prefix: Some(Prefix {
                     entity: "irc-west.hs.gy".to_string(),
@@ -263,13 +287,15 @@ mod tests {
                     "*** Looking up your hostname...".to_string()
                 ]),
             },
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_message_privmsg() {
+    fn test_parse_message_privmsg() -> Result<()> {
         assert_eq!(
-            Message::parse(":jay!jsvana PRIVMSG belak :test message").unwrap(),
+            Message::from_str(":jay!jsvana PRIVMSG belak :test message")?,
             Message {
                 prefix: Some(Prefix {
                     entity: "jay".to_string(),
@@ -279,19 +305,23 @@ mod tests {
                 command: "PRIVMSG".to_string(),
                 params: Some(vec!["belak".to_string(), "test message".to_string()]),
             },
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn test_parse_message_ping() {
+    fn test_parse_message_ping() -> Result<()> {
         assert_eq!(
-            Message::parse("PING :1234").unwrap(),
+            Message::from_str("PING :1234")?,
             Message {
                 prefix: None,
                 command: "PING".to_string(),
                 params: Some(vec!["1234".to_string()]),
             },
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
