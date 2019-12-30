@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::fmt;
 use std::str::FromStr;
 
 use thiserror::Error;
@@ -30,16 +31,18 @@ impl Prefix {
             at.map(|idx| message[idx + 1..].to_string()),
         )
     }
+}
 
-    fn to_string(&self) -> String {
+impl fmt::Display for Prefix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut prefix_str = format!("{}", self.entity);
         if let Some(user) = &self.user {
-            prefix_str += &format!("!{}", user);
+            prefix_str.push_str(&format!("!{}", user));
         }
         if let Some(host) = &self.host {
-            prefix_str += &format!("@{}", host);
+            prefix_str.push_str(&format!("@{}", host));
         }
-        prefix_str
+        write!(f, "{}", prefix_str)
     }
 }
 
@@ -79,25 +82,25 @@ impl PartialEq for Message {
     }
 }
 
-impl Message {
-    fn to_string(&self) -> String {
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut message_str = match &self.prefix {
             Some(prefix) => format!(":{} ", prefix.to_string()),
             None => "".to_string(),
         };
 
-        message_str += &format!("{}", self.command);
+        message_str.push_str(&format!("{}", self.command));
 
         if let Some(ref params) = self.params {
             for (i, param) in params.iter().enumerate() {
                 if i == params.len() - 1 {
-                    message_str += &format!(" :{}", param);
+                    message_str.push_str(&format!(" :{}", param));
                 } else {
-                    message_str += &format!(" {}", param);
+                    message_str.push_str(&format!(" {}", param));
                 }
             }
         }
-        message_str
+        write!(f, "{}", message_str)
     }
 }
 
@@ -327,12 +330,14 @@ mod tests {
     #[test]
     fn test_prefix_to_string_only_entity() {
         assert_eq!(
-            Prefix {
-                entity: "irc-west.hs.gy".to_string(),
-                user: None,
-                host: None
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Prefix {
+                    entity: "irc-west.hs.gy".to_string(),
+                    user: None,
+                    host: None
+                }
+            ),
             "irc-west.hs.gy".to_string(),
         );
     }
@@ -340,12 +345,14 @@ mod tests {
     #[test]
     fn test_prefix_to_string_no_user() {
         assert_eq!(
-            Prefix {
-                entity: "jay".to_string(),
-                user: None,
-                host: Some("localhost".to_string())
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Prefix {
+                    entity: "jay".to_string(),
+                    user: None,
+                    host: Some("localhost".to_string())
+                }
+            ),
             "jay@localhost".to_string(),
         );
     }
@@ -353,12 +360,14 @@ mod tests {
     #[test]
     fn test_prefix_to_string_no_host() {
         assert_eq!(
-            Prefix {
-                entity: "jay".to_string(),
-                user: Some("jsvana".to_string()),
-                host: None
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Prefix {
+                    entity: "jay".to_string(),
+                    user: Some("jsvana".to_string()),
+                    host: None
+                }
+            ),
             "jay!jsvana".to_string(),
         );
     }
@@ -366,12 +375,14 @@ mod tests {
     #[test]
     fn test_prefix_to_string_all_info() {
         assert_eq!(
-            Prefix {
-                entity: "jay".to_string(),
-                user: Some("jsvana".to_string()),
-                host: Some("localhost".to_string())
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Prefix {
+                    entity: "jay".to_string(),
+                    user: Some("jsvana".to_string()),
+                    host: Some("localhost".to_string())
+                }
+            ),
             "jay!jsvana@localhost".to_string(),
         );
     }
@@ -379,16 +390,18 @@ mod tests {
     #[test]
     fn test_message_to_string_no_params() {
         assert_eq!(
-            Message {
-                prefix: Some(Prefix {
-                    entity: "jay".to_string(),
-                    user: None,
-                    host: Some("localhost".to_string())
-                }),
-                command: "FAKE".to_string(),
-                params: None,
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Message {
+                    prefix: Some(Prefix {
+                        entity: "jay".to_string(),
+                        user: None,
+                        host: Some("localhost".to_string())
+                    }),
+                    command: "FAKE".to_string(),
+                    params: None,
+                }
+            ),
             ":jay@localhost FAKE".to_string(),
         )
     }
@@ -396,12 +409,14 @@ mod tests {
     #[test]
     fn test_message_to_string_only_command() {
         assert_eq!(
-            Message {
-                prefix: None,
-                command: "FAKE".to_string(),
-                params: None,
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Message {
+                    prefix: None,
+                    command: "FAKE".to_string(),
+                    params: None,
+                }
+            ),
             "FAKE".to_string(),
         )
     }
@@ -409,19 +424,21 @@ mod tests {
     #[test]
     fn test_message_to_string_notice() {
         assert_eq!(
-            Message {
-                prefix: Some(Prefix {
-                    entity: "irc-west.hs.gy".to_string(),
-                    user: None,
-                    host: None
-                }),
-                command: "NOTICE".to_string(),
-                params: Some(vec![
-                    "*".to_string(),
-                    "*** Looking up your hostname...".to_string()
-                ]),
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Message {
+                    prefix: Some(Prefix {
+                        entity: "irc-west.hs.gy".to_string(),
+                        user: None,
+                        host: None
+                    }),
+                    command: "NOTICE".to_string(),
+                    params: Some(vec![
+                        "*".to_string(),
+                        "*** Looking up your hostname...".to_string()
+                    ]),
+                }
+            ),
             ":irc-west.hs.gy NOTICE * :*** Looking up your hostname...".to_string(),
         )
     }
@@ -429,16 +446,18 @@ mod tests {
     #[test]
     fn test_message_to_string_privmsg() {
         assert_eq!(
-            Message {
-                prefix: Some(Prefix {
-                    entity: "jay".to_string(),
-                    user: Some("jsvana".to_string()),
-                    host: None
-                }),
-                command: "PRIVMSG".to_string(),
-                params: Some(vec!["belak".to_string(), "test message".to_string()]),
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Message {
+                    prefix: Some(Prefix {
+                        entity: "jay".to_string(),
+                        user: Some("jsvana".to_string()),
+                        host: None
+                    }),
+                    command: "PRIVMSG".to_string(),
+                    params: Some(vec!["belak".to_string(), "test message".to_string()]),
+                }
+            ),
             ":jay!jsvana PRIVMSG belak :test message".to_string(),
         )
     }
@@ -446,12 +465,14 @@ mod tests {
     #[test]
     fn test_message_to_string_ping() {
         assert_eq!(
-            Message {
-                prefix: None,
-                command: "PING".to_string(),
-                params: Some(vec!["1234".to_string()]),
-            }
-            .to_string(),
+            format!(
+                "{}",
+                Message {
+                    prefix: None,
+                    command: "PING".to_string(),
+                    params: Some(vec!["1234".to_string()]),
+                }
+            ),
             "PING :1234".to_string(),
         )
     }
