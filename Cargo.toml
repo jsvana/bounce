@@ -13,4 +13,3 @@ tokio = { version = "*", features = ["full"] }
 native-tls = "*"
 tokio-tls = "*"
 futures = "*"
-tokio-io-timeout = "*"
