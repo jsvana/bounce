@@ -1,44 +1,25 @@
 mod irc;
 
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::ToSocketAddrs;
 //use std::str::FromStr;
 
 use anyhow::Result;
-use futures::future::join_all;
+use futures::future::join;
 use native_tls::TlsConnector;
-use tokio::io::AsyncBufReadExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::prelude::*;
 use tokio_tls;
-use tokio_tls::TlsStream;
 
 //use irc::Message;
 
-const IRC_MESSAGE_LENGTH: usize = 512;
-
-// TODO(jsvana): figure this out...apparently implementing AsyncRead
-// means introducing `unsafe` :(
-/*
-enum StreamEither {
-    Left(TcpStream),
-    Right(TlsStream<TcpStream>),
-}
-*/
-
-struct IrcServer {
-    name: String,
-    host_port: SocketAddr,
-    // password: String,
-}
-
 async fn read_worker<T, U>(
-    _server_reader: tokio::io::ReadHalf<T>,
-    _user_writer: tokio::io::WriteHalf<U>,
+    mut server_reader: tokio::io::ReadHalf<T>,
+    mut user_writer: tokio::io::WriteHalf<U>,
 ) -> Result<()>
 where
     T: tokio::io::AsyncRead,
     U: tokio::io::AsyncWrite,
 {
+    tokio::io::copy(&mut server_reader, &mut user_writer).await?;
     Ok(())
 }
 
@@ -55,7 +36,7 @@ where
     Ok(())
 }
 
-async fn start_workers(mut user_socket: TcpStream) -> Result<()> {
+async fn start_workers(user_socket: TcpStream) -> Result<()> {
     let addr = "irc.hs.gy:9999".to_socket_addrs().unwrap().next().unwrap();
 
     let server_socket = TcpStream::connect(&addr).await?;
@@ -64,32 +45,20 @@ async fn start_workers(mut user_socket: TcpStream) -> Result<()> {
 
     let server_socket = cx.connect("irc-west.hs.gy", server_socket).await?;
 
-    let (server_reader, mut server_writer) = tokio::io::split(server_socket);
+    let (server_reader, server_writer) = tokio::io::split(server_socket);
 
-    let (mut user_reader, user_writer) = tokio::io::split(user_socket);
+    let (user_reader, user_writer) = tokio::io::split(user_socket);
 
-    // TODO(jsvana): figure this out. These two together can't be awaited
-    let futures = vec![
-        // TODO(jsvana): Both futures need the writer
-        write_worker(user_reader, server_writer),
-        // This fails to compile:
-        /*
-         * error[E0308]: mismatched types
-         *   --> src/main.rs:75:9
-         *    |
-         * 75 |         read_worker(server_reader, user_writer),
-         *    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected opaque type, found a different opaque type
-         *    |
-         *    = note: expected type `impl core::future::future::Future` (opaque type at <src/main.rs:48:6>)
-         *               found type `impl core::future::future::Future` (opaque type at <src/main.rs:37:6>)
-         *    = note: distinct uses of `impl Trait` result in different opaque types
-         */
+    // TODO(jsvana): Both futures need the writer
+    let results = join(
         read_worker(server_reader, user_writer),
-    ];
+        write_worker(user_reader, server_writer),
+    )
+    .await;
 
-    for result in join_all(futures).await {
-        result?;
-    }
+    let (read_result, write_result) = results;
+    read_result?;
+    write_result?;
 
     Ok(())
 }
