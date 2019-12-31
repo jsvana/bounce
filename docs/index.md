@@ -1,28 +1,23 @@
 # bounce
 
-An attempt to create a more convenient IRC bouncer with specific focus on message replay.
+An attempt to create a more convenient IRC bouncer with a specific focus on message replay.
 
 ## Proposed Log Storage
 ```
-  <server:hostport>/
-    <channel>/
-      METADATA
-      <day_log>
-      [...day_log]
+  <username>/
+    <server:hostport>/
+      <channel>/
+        <day_log>
+        [...day_log]
 ```
-
-A single copy of every server's logs will be stored.
-
->[!WARNING]
->Note that this means encryption will be harder to do properly.
 
 ```
       Read
       ───▶               ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
                                                 Bounce Server
-      Write              │                                                         │     foo.bar:1234 connection
-      ════▶                                                                  MPSC      ────────────────────────────
-                         │                           ┌───────────────┐      queue  │
+      Write              │                                                         │
+      ════▶
+                         │                           ┌───────────────┐             │
          ╔═══════════════════════════════════════════│ foo.bar:1234  │◀═══════════════════════════╗
          ║               │                           └───────────────┘             │              ║
          ▼                                                                                        ║
@@ -38,23 +33,26 @@ A single copy of every server's logs will be stored.
 
                          │                                                         │
 
-         ╔═══════════════╬═════════yes══╗                                          │   fake.server:4242 connection
-         ║                              ║                                              ────────────────────────────
+         ╔═══════════════╬═════════yes══╗                                          │
+         ║                              ║
          ▼               │              ║                                          │
-┌────────────────┐               ┌────────────┐                                            ┌──────────┐    ┌──────────┐
-│     Actual     │       │       │    Ping    │      ┌───────────┐                 │       │ User 2's │    │ User 1's │
-│fake.server:4242│──────────────▶│(keepalive)?│─no──▶│    Log    │────────────────────────▶┤IRC client├───▶│IRC client│
-│     server     │       │       └────────────┘      └───────────┘                 │       └──────────┘    └──────────┘
-└────────────────┘                                                            MPSC               ║               ║
-         ▲               │                           ┌────────────────┐      queue │             ║               ║
-         ╚═══════════════════════════════════════════│fake.server:4242│◀═════════════════════════╩═══════════════╝
+┌────────────────┐               ┌────────────┐                                            ┌──────────┐
+│     Actual     │       │       │    Ping    │      ┌───────────┐                 │       │ User 2's │
+│  foo.bar:1234  │──────────────▶│(keepalive)?│─no──▶│    Log    │────────────────────────▶│IRC client│
+│     server     │       │       └────────────┘      └───────────┘                 │       └──────────┘
+└────────────────┘                                                                               ║
+         ▲               │                           ┌────────────────┐            │             ║
+         ╚═══════════════════════════════════════════│  foo.bar:1234  │◀═════════════════════════╝
                          │                           └────────────────┘            │
                           ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
 ```
 
 ## Connections
-One connection will be maintained per `server:hostport` (the "server-facing" connection). Each user's `server:hostport` instance will be an additional connection (the "user-facing" connection). Messages will only be sent over user-facing connections after messages are persisted to the log.
 
-New `server:hostports` will create new connections.
+A user can connect to multiple `server:hostport`s through `bounce`. Each user connection will become two: the "user-facing connection" between the user and `bounce`, and the "server-facing connection" between `bounce` and the actual IRC server.
 
-Each connection will be a thread.
+In most cases messages will simply be proxied from the user through `bounce` to the destination IRC server. The exception to that rule is the `PING` message, which `bounce` will not forward and instead will reply automatically.
+
+Messages sent from actual IRC servers will only be sent to users' IRC clients after the messages have been persisted to the log.
+
+Each direction of communication will be a thread, so each user's `server:hostport` connection will consist of two threads.
