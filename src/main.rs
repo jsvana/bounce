@@ -27,14 +27,11 @@ use irc::Message;
 type GuardedQueueMap = Arc<Mutex<BTreeMap<String, Sender<Message>>>>;
 
 fn respond_to_ping(message: Message, server_messages: &mut Sender<Message>) -> Result<()> {
-    match &message.params() {
-        Some(params) => match params.last() {
-            Some(last) => {
-                server_messages.try_send(Message::from_str(&format!("PONG :{}", last))?)?;
-                Ok(())
-            }
-            None => Err(format_err!("PING message has no parameters")),
-        },
+    match message.params().last() {
+        Some(last) => {
+            server_messages.try_send(Message::from_str(&format!("PONG :{}", last))?)?;
+            Ok(())
+        }
         None => Err(format_err!("PING message has no parameters")),
     }
 }

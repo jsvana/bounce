@@ -77,7 +77,7 @@ pub struct Message {
     prefix: Option<Prefix>,
     // TODO(jsvana): Maybe make this an enum?
     command: String,
-    params: Option<Vec<String>>,
+    params: Vec<String>,
 }
 
 impl Message {
@@ -85,7 +85,7 @@ impl Message {
         &self.command
     }
 
-    pub fn params(&self) -> &Option<Vec<String>> {
+    pub fn params(&self) -> &Vec<String> {
         &self.params
     }
 }
@@ -104,14 +104,12 @@ impl fmt::Display for Message {
 
         write!(f, "{}", self.command)?;
 
-        if let Some(ref params) = self.params {
-            for (i, param) in params.iter().enumerate() {
-                write!(f, " ")?;
-                if i == params.len() - 1 {
-                    write!(f, ":")?;
-                }
-                write!(f, "{}", param)?;
+        for (i, param) in self.params.iter().enumerate() {
+            write!(f, " ")?;
+            if i == self.params.len() - 1 {
+                write!(f, ":")?;
             }
+            write!(f, "{}", param)?;
         }
 
         Ok(())
@@ -132,7 +130,7 @@ impl FromStr for Message {
                 return Ok(Message {
                     prefix: None,
                     command: message.to_string(),
-                    params: None,
+                    params: Vec::new(),
                 })
             }
         };
@@ -154,7 +152,7 @@ impl FromStr for Message {
             return Ok(Message {
                 prefix,
                 command,
-                params: None,
+                params: Vec::new(),
             });
         }
 
@@ -189,7 +187,7 @@ impl FromStr for Message {
         Ok(Message {
             prefix,
             command: command.to_string(),
-            params: Some(params),
+            params: params,
         })
     }
 }
@@ -267,7 +265,7 @@ mod tests {
                     host: Some("localhost".to_string())
                 }),
                 command: "FAKE".to_string(),
-                params: None,
+                params: Vec::new(),
             },
         );
 
@@ -281,7 +279,7 @@ mod tests {
             Message {
                 prefix: None,
                 command: "FAKE".to_string(),
-                params: None,
+                params: Vec::new(),
             },
         );
 
@@ -299,10 +297,10 @@ mod tests {
                     host: None
                 }),
                 command: "NOTICE".to_string(),
-                params: Some(vec![
+                params: vec![
                     "*".to_string(),
                     "*** Looking up your hostname...".to_string()
-                ]),
+                ],
             },
         );
 
@@ -320,7 +318,7 @@ mod tests {
                     host: None
                 }),
                 command: "PRIVMSG".to_string(),
-                params: Some(vec!["belak".to_string(), "test message".to_string()]),
+                params: vec!["belak".to_string(), "test message".to_string()],
             },
         );
 
@@ -334,7 +332,7 @@ mod tests {
             Message {
                 prefix: None,
                 command: "PING".to_string(),
-                params: Some(vec!["1234".to_string()]),
+                params: vec!["1234".to_string()],
             },
         );
 
@@ -413,7 +411,7 @@ mod tests {
                         host: Some("localhost".to_string())
                     }),
                     command: "FAKE".to_string(),
-                    params: None,
+                    params: Vec::new(),
                 }
             ),
             ":jay@localhost FAKE".to_string(),
@@ -428,7 +426,7 @@ mod tests {
                 Message {
                     prefix: None,
                     command: "FAKE".to_string(),
-                    params: None,
+                    params: Vec::new(),
                 }
             ),
             "FAKE".to_string(),
@@ -447,10 +445,10 @@ mod tests {
                         host: None
                     }),
                     command: "NOTICE".to_string(),
-                    params: Some(vec![
+                    params: vec![
                         "*".to_string(),
                         "*** Looking up your hostname...".to_string()
-                    ]),
+                    ],
                 }
             ),
             ":irc-west.hs.gy NOTICE * :*** Looking up your hostname...".to_string(),
@@ -469,7 +467,7 @@ mod tests {
                         host: None
                     }),
                     command: "PRIVMSG".to_string(),
-                    params: Some(vec!["belak".to_string(), "test message".to_string()]),
+                    params: vec!["belak".to_string(), "test message".to_string()],
                 }
             ),
             ":jay!jsvana PRIVMSG belak :test message".to_string(),
@@ -484,7 +482,7 @@ mod tests {
                 Message {
                     prefix: None,
                     command: "PING".to_string(),
-                    params: Some(vec!["1234".to_string()]),
+                    params: vec!["1234".to_string()],
                 }
             ),
             "PING :1234".to_string(),
