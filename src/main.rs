@@ -14,6 +14,8 @@ use futures::lock::Mutex;
 use config::Config;
 //use irc::Message;
 
+const FOO: usize = 42;
+
 // TODO(jsvana): use this for incoming user connections
 /*
 async fn write_worker<T>(
@@ -40,6 +42,10 @@ async fn start_workers(_queues: server::GuardedQueueMap, _user_socket: TcpStream
 }
 */
 
+fn hello() {
+    println!("Hi");
+}
+
 // TODO(jsvana): take in the guarded map from above here
 /*
 async fn server_listener_worker(queues: server::GuardedQueueMap, config: &Config) -> Result<()> {
@@ -58,6 +64,8 @@ async fn server_listener_worker(queues: server::GuardedQueueMap, config: &Config
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    hello();
 
     let config = Config::from_file("config.toml")?;
 

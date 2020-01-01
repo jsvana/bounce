@@ -60,3 +60,7 @@ impl Config {
             .map_err(|e| format_err!("Failed to read configuration: {}", e))
     }
 }
+
+pub fn do_something(arg1: &str) -> String {
+    format!("{} foobar", arg1)
+}
