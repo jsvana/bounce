@@ -21,6 +21,10 @@ use super::irc::Message;
 
 pub type GuardedQueueMap = Arc<Mutex<BTreeMap<String, Sender<Message>>>>;
 
+fn yo() -> Result<()> {
+    Ok(())
+}
+
 fn respond_to_ping(message: Message, server_messages: &mut Sender<Message>) -> Result<()> {
     match message.params().last() {
         Some(last) => {
@@ -166,6 +170,10 @@ pub async fn connections_worker(queues: GuardedQueueMap, config: &Config) -> Res
     for network in config.networks.iter() {
         connections.push(individual_network_worker(Arc::clone(&queues), network));
     }
+
+    debug!("HERE WE GO");
+
+    yo()?;
 
     join_all(connections).await;
 
