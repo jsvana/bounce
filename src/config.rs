@@ -13,12 +13,28 @@ impl Core {
     }
 }
 
+fn default_port() -> u16 {
+    6667
+}
+
+fn default_ssl() -> bool {
+    false
+}
+
 #[derive(Debug, Deserialize)]
 pub struct NetworkServer {
     pub hostname: String,
+    #[serde(default = "default_port")]
     pub port: u16,
+    #[serde(default = "default_ssl")]
     pub ssl: bool,
     pub password: Option<String>,
+}
+
+impl NetworkServer {
+    pub fn address(&self) -> String {
+        format!("{}:{}", self.hostname, self.port)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,7 +42,7 @@ pub struct Network {
     pub name: String,
     pub nick: String,
     pub alt_nick: String,
-    pub ident: String,
+    pub username: String,
     pub realname: String,
 
     pub server: NetworkServer,
