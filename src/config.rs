@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use anyhow::{format_err, Result};
 use serde_derive::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Core {
     pub bind_hostname: String,
     pub bind_port: u16,
@@ -13,6 +15,11 @@ impl Core {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct Log {
+    pub base_path: PathBuf,
+}
+
 fn default_port() -> u16 {
     6667
 }
@@ -21,7 +28,7 @@ fn default_ssl() -> bool {
     false
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct NetworkServer {
     pub hostname: String,
     #[serde(default = "default_port")]
@@ -37,26 +44,38 @@ impl NetworkServer {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Network {
     pub name: String,
-    pub nick: String,
-    pub alt_nick: String,
+    pub nick_choices: Vec<String>,
     pub username: String,
     pub realname: String,
 
     pub server: NetworkServer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub core: Core,
+    pub log: Log,
     pub networks: Vec<Network>,
 }
 
 impl Config {
     pub fn from_file(filename: &str) -> Result<Self> {
-        toml::from_str(&std::fs::read_to_string(filename)?)
-            .map_err(|e| format_err!("Failed to read configuration: {}", e))
+        let config: Self = toml::from_str(&std::fs::read_to_string(filename)?)
+            .map_err(|e| format_err!("Failed to read configuration: {}", e))?;
+
+        for network in config.networks.iter() {
+            if network.nick_choices.len() == 0 {
+                return Err(format_err!(
+                    "Must specify at least one nick for network \"{}\" ({})",
+                    network.name,
+                    network.server.address()
+                ));
+            }
+        }
+
+        Ok(config)
     }
 }
