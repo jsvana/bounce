@@ -1,0 +1,18 @@
+[core]
+bind_hostname = "localhost"
+bind_port = 4242
+
+[[networks]]
+name = "some_network"
+nick = "coolguy42"
+alt_nick = "coolguy42_"
+ident = "coolguy42"
+realname = "Cool Guy"
+
+  [networks.server]
+  hostname = "irc.freenode.net"
+  port = 6667
+  ssl = false
+
+  [[networks.channel]]
+  name = "#some-channel"

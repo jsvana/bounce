@@ -75,8 +75,19 @@ impl FromStr for Prefix {
 #[derive(Debug)]
 pub struct Message {
     prefix: Option<Prefix>,
+    // TODO(jsvana): Maybe make this an enum?
     command: String,
     params: Option<Vec<String>>,
+}
+
+impl Message {
+    pub fn command(&self) -> &str {
+        &self.command
+    }
+
+    pub fn params(&self) -> &Option<Vec<String>> {
+        &self.params
+    }
 }
 
 impl PartialEq for Message {
