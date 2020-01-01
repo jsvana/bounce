@@ -1,3 +1,4 @@
+mod config;
 mod irc;
 
 use std::net::ToSocketAddrs;
@@ -7,12 +8,14 @@ use anyhow::{format_err, Result};
 use futures::channel::mpsc::{channel, Receiver, Sender};
 use futures::future::join3;
 use futures::StreamExt;
+use log::{debug, trace};
 use native_tls::TlsConnector;
 use tokio::io::AsyncBufReadExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio_tls;
 
+use config::Config;
 use irc::Message;
 
 async fn server_writer_worker<T>(
@@ -23,7 +26,7 @@ where
     T: tokio::io::AsyncWrite,
 {
     while let Some(message) = messages.next().await {
-        println!("SENDING {}", message);
+        trace!("[send] {}", message);
         server_writer
             .write_all(format!("{}\r\n", message).as_bytes())
             .await?;
@@ -64,7 +67,7 @@ where
             continue;
         }
 
-        println!("Read {}", message);
+        trace!("[recv] {}", message);
 
         user_writer
             .write_all(format!("{}\r\n", message).as_bytes())
@@ -127,12 +130,17 @@ async fn start_workers(user_socket: TcpStream) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut listener = TcpListener::bind("127.0.0.1:49654").await?;
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    println!("Listening on 49654");
+    let config = Config::from_file("config.toml")?;
+
+    let bind_address = config.core.bind_address();
+    let mut listener = TcpListener::bind(&bind_address).await?;
+
+    debug!("listening on {}", bind_address);
     loop {
-        let (socket, _) = listener.accept().await?;
-        println!("Got new connection");
+        let (socket, remote_address) = listener.accept().await?;
+        debug!("new connection from {}", remote_address);
         start_workers(socket).await?;
     }
 }
