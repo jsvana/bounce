@@ -51,7 +51,12 @@ async fn individual_network_read_worker(
         log_manager
             .lock()
             .await
-            .add_message(&config.username, &config.name, Some("baz"), &message)
+            .add_message(
+                &config.username,
+                &config.name,
+                /*channel=*/ None,
+                &message,
+            )
             .await?;
 
         trace!("[recv] {}", message);
@@ -108,7 +113,12 @@ async fn individual_network_worker(
     );
 
     let (read_result, write_result) = join(
-        individual_network_read_worker(&network, log_manager, server_reader, server_messages_tx.clone()),
+        individual_network_read_worker(
+            &network,
+            log_manager,
+            server_reader,
+            server_messages_tx.clone(),
+        ),
         individual_network_write_worker(&network, server_writer, server_messages_rx),
     )
     .await;
