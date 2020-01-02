@@ -54,22 +54,25 @@ impl LogManager {
         })
     }
 
-    fn path_from_params(&self, user: &str, server: &str, channel: &str) -> PathBuf {
-        vec![
+    fn path_from_params(&self, user: &str, server: &str, channel: Option<&str>) -> PathBuf {
+        let mut path: PathBuf = vec![
             &self.base_path,
             &PathBuf::from(user),
             &PathBuf::from(server),
-            &PathBuf::from(channel),
-        ]
-        .iter()
-        .collect()
+        ].iter().collect();
+
+        if let Some(channel) = channel {
+            path.push(channel);
+        }
+
+        path
     }
 
     pub async fn add_message(
         &mut self,
         user: &str,
         server: &str,
-        channel: &str,
+        channel: Option<&str>,
         message: &Message,
     ) -> Result<()> {
         let dir_path = self.path_from_params(user, server, channel);

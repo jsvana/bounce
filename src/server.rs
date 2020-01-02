@@ -33,6 +33,7 @@ fn respond_to_ping(message: Message, server_messages: &mut Sender<Message>) -> R
 }
 
 async fn individual_network_read_worker(
+    config: &Network,
     log_manager: Arc<Mutex<LogManager>>,
     server_reader: Pin<Box<dyn AsyncRead + Unpin>>,
     mut messages: Sender<Message>,
@@ -50,7 +51,7 @@ async fn individual_network_read_worker(
         log_manager
             .lock()
             .await
-            .add_message("foo", "bar", "baz", &message)
+            .add_message(&config.username, &config.name, Some("baz"), &message)
             .await?;
 
         trace!("[recv] {}", message);
@@ -68,6 +69,7 @@ async fn individual_network_read_worker(
 // should hand out copies of the Sender-side of the queue
 // as necessary? Not sure how to reference them, though.
 async fn individual_network_write_worker(
+    _config: &Network,
     mut server_writer: Pin<Box<dyn AsyncWrite>>,
     mut messages: Receiver<Message>,
 ) -> Result<()> {
@@ -106,8 +108,8 @@ async fn individual_network_worker(
     );
 
     let (read_result, write_result) = join(
-        individual_network_read_worker(log_manager, server_reader, server_messages_tx.clone()),
-        individual_network_write_worker(server_writer, server_messages_rx),
+        individual_network_read_worker(&network, log_manager, server_reader, server_messages_tx.clone()),
+        individual_network_write_worker(&network, server_writer, server_messages_rx),
     )
     .await;
 
